@@ -19,9 +19,13 @@ This fork keeps upstream workflow files unchanged where possible, so future sync
 The validation job runs:
 
 - `npm ci`
-- `npm run lint`
 - `npm run build:packages`
 - `npm run build:client`
+
+ESLint remains covered by the dedicated `ESLint Code Quality Checks` workflow,
+which uses the project's changed-file linting logic. This workflow does not call
+the root `npm run lint` script because that script's glob can fail in CI when
+ESLint finds no matching files.
 
 ## Published Image
 
