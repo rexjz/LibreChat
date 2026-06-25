@@ -1,0 +1,118 @@
+name: Self-hosted CI
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/self-hosted-ci.yml'
+      - 'Dockerfile.multi'
+      - 'api/**'
+      - 'client/**'
+      - 'config/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'skill/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/self-hosted-ci.yml'
+      - 'Dockerfile.multi'
+      - 'api/**'
+      - 'client/**'
+      - 'config/**'
+      - 'packages/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'skill/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  NODE_OPTIONS: '--max-old-space-size=6144'
+
+concurrency:
+  group: self-hosted-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate application build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 24.16.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.16.0'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run lint checks
+        run: npm run lint
+
+      - name: Build shared packages
+        run: npm run build:packages
+
+      - name: Build client
+        run: npm run build:client
+
+  build-image:
+    name: Build and publish API image
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        run: |
+          {
+            echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/librechat-api"
+            echo "BUILD_COMMIT=${GITHUB_SHA}"
+            echo "BUILD_BRANCH=${GITHUB_REF_NAME}"
+            echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          } >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare environment
+        run: cp .env.example .env
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.multi
+          target: api-build
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:main
+          cache-from: type=gha,scope=self-hosted-api-amd64
+          cache-to: type=gha,mode=max,scope=self-hosted-api-amd64
+          build-args: |
+            BUILD_COMMIT=${{ env.BUILD_COMMIT }}
+            BUILD_BRANCH=${{ env.BUILD_BRANCH }}
+            BUILD_DATE=${{ env.BUILD_DATE }}
