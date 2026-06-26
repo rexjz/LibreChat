@@ -86,22 +86,25 @@ jobs:
 
           {
             echo "IMAGE_NAME=${GHCR_IMAGE_NAME}"
+            echo "GHCR_IMAGE_NAME=${GHCR_IMAGE_NAME}"
             echo "BUILD_COMMIT=${GITHUB_SHA}"
             echo "BUILD_BRANCH=${GITHUB_REF_NAME}"
             echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-            echo "DOCKER_IMAGE_TAGS<<EOF"
+            echo "GHCR_IMAGE_TAGS<<EOF"
             echo "${GHCR_IMAGE_NAME}:${GITHUB_SHA}"
             echo "${GHCR_IMAGE_NAME}:main"
+            echo "EOF"
 
             if [ -n "${EXTRA_REGISTRY:-}" ]; then
               EXTRA_REGISTRY="${EXTRA_REGISTRY%/}"
               EXTRA_NAMESPACE="${EXTRA_REGISTRY_NAMESPACE:-${OWNER_LC}}"
               EXTRA_IMAGE_NAME="${EXTRA_REGISTRY}/${EXTRA_NAMESPACE}/librechat-api"
+              echo "EXTRA_IMAGE_NAME=${EXTRA_IMAGE_NAME}"
+              echo "EXTRA_IMAGE_TAGS<<EOF"
               echo "${EXTRA_IMAGE_NAME}:${GITHUB_SHA}"
               echo "${EXTRA_IMAGE_NAME}:main"
+              echo "EOF"
             fi
-
-            echo "EOF"
           } >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
@@ -122,10 +125,22 @@ jobs:
           username: ${{ vars.EXTRA_REGISTRY_USERNAME }}
           password: ${{ secrets.EXTRA_REGISTRY_PASSWORD }}
 
+      - name: Setup Bun for chunked extra registry push
+        if: ${{ vars.EXTRA_REGISTRY != '' }}
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install chunked push dependencies
+        if: ${{ vars.EXTRA_REGISTRY != '' }}
+        working-directory: .ci/serverless-registry-push
+        run: bun install --frozen-lockfile
+
       - name: Prepare environment
         run: cp .env.example .env
 
-      - name: Build and push image
+      - name: Build and push GHCR image
+        if: ${{ vars.EXTRA_REGISTRY == '' }}
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -133,13 +148,62 @@ jobs:
           target: api-build
           platforms: linux/amd64
           push: true
-          tags: ${{ env.DOCKER_IMAGE_TAGS }}
+          tags: ${{ env.GHCR_IMAGE_TAGS }}
           cache-from: type=gha,scope=self-hosted-api-amd64
           cache-to: type=gha,mode=max,scope=self-hosted-api-amd64
           build-args: |
             BUILD_COMMIT=${{ env.BUILD_COMMIT }}
             BUILD_BRANCH=${{ env.BUILD_BRANCH }}
             BUILD_DATE=${{ env.BUILD_DATE }}
+
+      - name: Build image for GHCR and extra registry
+        if: ${{ vars.EXTRA_REGISTRY != '' }}
+        run: |
+          set -euo pipefail
+
+          docker buildx build \
+            --file Dockerfile.multi \
+            --target api-build \
+            --platform linux/amd64 \
+            --load \
+            --tag "${GHCR_IMAGE_NAME}:${GITHUB_SHA}" \
+            --tag "${GHCR_IMAGE_NAME}:main" \
+            --tag "${EXTRA_IMAGE_NAME}:${GITHUB_SHA}" \
+            --tag "${EXTRA_IMAGE_NAME}:main" \
+            --cache-from type=gha,scope=self-hosted-api-amd64 \
+            --cache-to type=gha,mode=max,scope=self-hosted-api-amd64 \
+            --build-arg "BUILD_COMMIT=${BUILD_COMMIT}" \
+            --build-arg "BUILD_BRANCH=${BUILD_BRANCH}" \
+            --build-arg "BUILD_DATE=${BUILD_DATE}" \
+            .
+
+      - name: Push GHCR image
+        if: ${{ vars.EXTRA_REGISTRY != '' }}
+        run: |
+          set -euo pipefail
+
+          docker push "${GHCR_IMAGE_NAME}:${GITHUB_SHA}"
+          docker push "${GHCR_IMAGE_NAME}:main"
+
+      - name: Push extra registry image with chunked uploader
+        if: ${{ vars.EXTRA_REGISTRY != '' }}
+        env:
+          EXTRA_REGISTRY_USERNAME: ${{ vars.EXTRA_REGISTRY_USERNAME }}
+          EXTRA_REGISTRY_PASSWORD: ${{ secrets.EXTRA_REGISTRY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          PUSH_WORKDIR=$(mktemp -d)
+          pushd "${PUSH_WORKDIR}" > /dev/null
+
+          for tag in "${GITHUB_SHA}" main; do
+            printf '%s' "${EXTRA_REGISTRY_PASSWORD}" \
+              | USERNAME_REGISTRY="${EXTRA_REGISTRY_USERNAME}" \
+                bun run "${GITHUB_WORKSPACE}/.ci/serverless-registry-push/index.ts" "${EXTRA_IMAGE_NAME}:${tag}"
+          done
+
+          popd > /dev/null
+          rm -rf "${PUSH_WORKDIR}"
 
       - name: Log out
         if: always()

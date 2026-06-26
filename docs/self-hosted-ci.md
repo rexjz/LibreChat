@@ -41,6 +41,10 @@ When `EXTRA_REGISTRY` is configured, the same image is also published to:
 - `<EXTRA_REGISTRY>/<EXTRA_REGISTRY_NAMESPACE>/librechat-api:<commit-sha>`
 - `<EXTRA_REGISTRY>/<EXTRA_REGISTRY_NAMESPACE>/librechat-api:main`
 
+GHCR uses the standard Docker push path. The extra registry uses the bundled
+`.ci/serverless-registry-push` chunked uploader so registries behind Cloudflare
+request-size limits can accept large LibreChat image layers.
+
 Configure the extra registry with:
 
 - Repository variable `EXTRA_REGISTRY`, for example `registry.example.com`
