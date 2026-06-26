@@ -79,14 +79,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          PUSH_WORKDIR=$(mktemp -d)
-          pushd "${PUSH_WORKDIR}" > /dev/null
-
           for image in "${RAG_API_IMAGE}:latest" "${ADMIN_PANEL_IMAGE}:latest"; do
+            PUSH_WORKDIR=$(mktemp -d)
+            pushd "${PUSH_WORKDIR}" > /dev/null
+
             printf '%s' "${EXTRA_REGISTRY_PASSWORD}" \
               | USERNAME_REGISTRY="${EXTRA_REGISTRY_USERNAME}" \
                 bun run "${GITHUB_WORKSPACE}/.ci/serverless-registry-push/index.ts" "${image}"
-          done
 
-          popd > /dev/null
-          rm -rf "${PUSH_WORKDIR}"
+            popd > /dev/null
+            rm -rf "${PUSH_WORKDIR}"
+          done
