@@ -1,0 +1,19 @@
+{
+	admin off
+}
+
+{$LIBRECHAT_SITE_ADDRESS:http://localhost} {
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy api:3080
+}
+
+{$LIBRECHAT_ADMIN_ADDRESS:http://admin.localhost} {
+	request_body {
+		max_size 25MB
+	}
+
+	reverse_proxy admin-panel:3000
+}

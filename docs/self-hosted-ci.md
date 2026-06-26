@@ -74,13 +74,22 @@ Override the API image and tag with:
 - `LIBRECHAT_API_IMAGE_TAG=main`
 
 The compose file keeps the same support services as the upstream deploy compose:
-MongoDB, Meilisearch, pgvector, RAG API, admin panel, and Nginx.
+MongoDB, Meilisearch, pgvector, RAG API, admin panel, and Caddy.
 Public dependency images default to the `registry.acceled.net/` mirror prefix to
 speed up deployment pulls.
 
 RAG API and admin panel are originally published under `registry.librechat.ai`.
 Run the `Self-hosted Support Images` workflow when those images need to be mirrored
 into `<EXTRA_REGISTRY>/<EXTRA_REGISTRY_NAMESPACE>` for self-hosted deployments.
+
+Caddy defaults to `http://localhost` for the main app and `http://admin.localhost`
+for the admin panel. For production, set:
+
+- `LIBRECHAT_SITE_ADDRESS=example.com`
+- `LIBRECHAT_ADMIN_ADDRESS=admin.example.com`
+
+When those addresses are real public DNS names pointing at the deployment host,
+Caddy can provision HTTPS automatically.
 
 ## Recommended GitHub Actions Cleanup
 
