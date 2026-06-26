@@ -65,15 +65,17 @@ credentials on the server.
 
 Use `deploy-compose.self-hosted.yml` for fork-owned deployments. It defaults to:
 
-- `ghcr.io/rexjz/librechat-api:main`
+- `registry.acceled.net/team/max/librechat-api:main`
 
-Override the API image and tag for the extra registry with:
+Override the API image and tag with:
 
-- `LIBRECHAT_API_IMAGE=<EXTRA_REGISTRY>/<EXTRA_REGISTRY_NAMESPACE>/librechat-api`
+- `LIBRECHAT_API_IMAGE=<registry>/<namespace>/librechat-api`
 - `LIBRECHAT_API_IMAGE_TAG=main`
 
 The compose file keeps the same support services as the upstream deploy compose:
 MongoDB, Meilisearch, pgvector, RAG API, admin panel, and Nginx.
+Public dependency images default to the `registry.acceled.net/` mirror prefix to
+speed up deployment pulls.
 
 ## Recommended GitHub Actions Cleanup
 
