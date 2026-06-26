@@ -64,7 +64,7 @@ services:
       - ./skill:/app/skill
 
   admin-panel:
-    image: ${ADMIN_PANEL_IMAGE:-registry.acceled.net/registry.librechat.ai/clickhouse/librechat-admin-panel:latest}
+    image: ${ADMIN_PANEL_IMAGE:-registry.acceled.net/team/max/librechat-admin-panel:latest}
     container_name: admin-panel
     pull_policy: always
     depends_on:
@@ -138,7 +138,7 @@ services:
       start_period: 30s
 
   rag_api:
-    image: ${RAG_API_IMAGE:-registry.acceled.net/registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest}
+    image: ${RAG_API_IMAGE:-registry.acceled.net/team/max/librechat-rag-api-dev-lite:latest}
     container_name: rag_api
     pull_policy: always
     restart: unless-stopped

@@ -1,0 +1,92 @@
+name: Self-hosted Support Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: self-hosted-support-images
+  cancel-in-progress: true
+
+jobs:
+  mirror-support-images:
+    name: Mirror support images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        env:
+          EXTRA_REGISTRY: ${{ vars.EXTRA_REGISTRY }}
+          EXTRA_REGISTRY_NAMESPACE: ${{ vars.EXTRA_REGISTRY_NAMESPACE }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${EXTRA_REGISTRY:-}" ]; then
+            echo "::error::EXTRA_REGISTRY is required."
+            exit 1
+          fi
+
+          OWNER_LC="${GITHUB_REPOSITORY_OWNER,,}"
+          EXTRA_REGISTRY="${EXTRA_REGISTRY%/}"
+          EXTRA_NAMESPACE="${EXTRA_REGISTRY_NAMESPACE:-${OWNER_LC}}"
+
+          {
+            echo "EXTRA_REGISTRY=${EXTRA_REGISTRY}"
+            echo "EXTRA_NAMESPACE=${EXTRA_NAMESPACE}"
+            echo "RAG_API_IMAGE=${EXTRA_REGISTRY}/${EXTRA_NAMESPACE}/librechat-rag-api-dev-lite"
+            echo "ADMIN_PANEL_IMAGE=${EXTRA_REGISTRY}/${EXTRA_NAMESPACE}/librechat-admin-panel"
+          } >> "$GITHUB_ENV"
+
+      - name: Log in to extra container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.EXTRA_REGISTRY }}
+          username: ${{ vars.EXTRA_REGISTRY_USERNAME }}
+          password: ${{ secrets.EXTRA_REGISTRY_PASSWORD }}
+
+      - name: Setup Bun for chunked push
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install chunked push dependencies
+        working-directory: .ci/serverless-registry-push
+        run: bun install --frozen-lockfile
+
+      - name: Pull and tag support images
+        run: |
+          set -euo pipefail
+
+          docker pull registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest
+          docker tag \
+            registry.librechat.ai/danny-avila/librechat-rag-api-dev-lite:latest \
+            "${RAG_API_IMAGE}:latest"
+
+          docker pull registry.librechat.ai/clickhouse/librechat-admin-panel:latest
+          docker tag \
+            registry.librechat.ai/clickhouse/librechat-admin-panel:latest \
+            "${ADMIN_PANEL_IMAGE}:latest"
+
+      - name: Push support images with chunked uploader
+        env:
+          EXTRA_REGISTRY_USERNAME: ${{ vars.EXTRA_REGISTRY_USERNAME }}
+          EXTRA_REGISTRY_PASSWORD: ${{ secrets.EXTRA_REGISTRY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          PUSH_WORKDIR=$(mktemp -d)
+          pushd "${PUSH_WORKDIR}" > /dev/null
+
+          for image in "${RAG_API_IMAGE}:latest" "${ADMIN_PANEL_IMAGE}:latest"; do
+            printf '%s' "${EXTRA_REGISTRY_PASSWORD}" \
+              | USERNAME_REGISTRY="${EXTRA_REGISTRY_USERNAME}" \
+                bun run "${GITHUB_WORKSPACE}/.ci/serverless-registry-push/index.ts" "${image}"
+          done
+
+          popd > /dev/null
+          rm -rf "${PUSH_WORKDIR}"

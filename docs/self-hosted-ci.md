@@ -4,6 +4,7 @@ This fork keeps upstream workflow files unchanged where possible, so future sync
 `upstream/main` have fewer conflicts. The fork-owned workflow lives in:
 
 - `.github/workflows/self-hosted-ci.yml`
+- `.github/workflows/self-hosted-support-images.yml`
 - `deploy-compose.self-hosted.yml`
 
 ## What It Does
@@ -76,6 +77,10 @@ The compose file keeps the same support services as the upstream deploy compose:
 MongoDB, Meilisearch, pgvector, RAG API, admin panel, and Nginx.
 Public dependency images default to the `registry.acceled.net/` mirror prefix to
 speed up deployment pulls.
+
+RAG API and admin panel are originally published under `registry.librechat.ai`.
+Run the `Self-hosted Support Images` workflow when those images need to be mirrored
+into `<EXTRA_REGISTRY>/<EXTRA_REGISTRY_NAMESPACE>` for self-hosted deployments.
 
 ## Recommended GitHub Actions Cleanup
 
