@@ -1,0 +1,71 @@
+version: 1.3.13
+cache: true
+
+interface:
+  customWelcome: 'Welcome to LibreChat.'
+  modelSelect: true
+  parameters: true
+  presets: true
+  prompts:
+    use: true
+    create: true
+    share: false
+    public: false
+  bookmarks: true
+  multiConvo: true
+  agents:
+    use: true
+    create: true
+    share: false
+    public: false
+  marketplace:
+    use: false
+  fileSearch: true
+  fileCitations: true
+  peoplePicker:
+    users: false
+    groups: false
+    roles: false
+
+endpoints:
+  agents:
+    allowedProviders:
+      - openAI
+    recursionLimit: 50
+    maxRecursionLimit: 50
+    maxCitations: 30
+    maxCitationsPerFile: 7
+    minRelevanceScore: 0.45
+    capabilities:
+      - deferred_tools
+      - file_search
+      - context
+      - artifacts
+      - tools
+      - subagents
+      - actions
+      - ocr
+
+fileConfig:
+  endpoints:
+    agents:
+      fileLimit: 10
+      fileSizeLimit: 25
+      totalSizeLimit: 100
+      supportedMimeTypes:
+        - 'text/.*'
+        - 'application/pdf'
+        - 'application/json'
+        - 'application/xml'
+        - 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        - 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        - 'application/vnd.ms-excel'
+        - 'text/csv'
+    default:
+      fileLimit: 10
+      fileSizeLimit: 25
+      totalSizeLimit: 100
+  serverFileSizeLimit: 100
+  avatarSizeLimit: 2
+  clientImageResize:
+    enabled: false

@@ -5,7 +5,7 @@ This fork keeps upstream workflow files unchanged where possible, so future sync
 
 - `.github/workflows/self-hosted-ci.yml`
 - `.github/workflows/self-hosted-support-images.yml`
-- `deploy-compose.self-hosted.yml`
+- `deploy/self-hosted/compose.yml`
 
 ## What It Does
 
@@ -64,7 +64,34 @@ credentials on the server.
 
 ## Self-hosted Compose
 
-Use `deploy-compose.self-hosted.yml` for fork-owned deployments. It defaults to:
+Use `deploy/self-hosted/compose.yml` for fork-owned deployments. The self-hosted
+deployment files live together in `deploy/self-hosted/`:
+
+- `compose.yml`
+- `Caddyfile`
+- `deploy.env.example`
+- `librechat.self-hosted.yaml`
+- `generate-secrets.sh`
+- `README.md`
+- `upload.sh`
+
+Initial setup:
+
+```sh
+cd deploy/self-hosted
+docker login registry.acceled.net
+cp deploy.env.example .env
+cp librechat.self-hosted.yaml librechat.yaml
+docker compose -f compose.yml up -d
+```
+
+Replace every placeholder secret in `.env` before production use. Generate them with:
+
+```sh
+./generate-secrets.sh
+```
+
+The compose file defaults to:
 
 - `registry.acceled.net/team/max/librechat-api:main`
 
@@ -77,6 +104,11 @@ The compose file keeps the same support services as the upstream deploy compose:
 MongoDB, Meilisearch, pgvector, RAG API, admin panel, and Caddy.
 Public dependency images default to the `registry.acceled.net/` mirror prefix to
 speed up deployment pulls.
+
+The bundled `librechat.self-hosted.yaml` enables Agent chat with file uploads and
+Agent file search. It uses the local RAG API and pgvector services from the compose
+stack. Configure `OPENAI_API_KEY` for chat and `RAG_OPENAI_API_KEY` for embeddings
+in `.env`; by default `RAG_OPENAI_API_KEY` reuses `OPENAI_API_KEY`.
 
 RAG API and admin panel are originally published under `registry.librechat.ai`.
 Run the `Self-hosted Support Images` workflow when those images need to be mirrored

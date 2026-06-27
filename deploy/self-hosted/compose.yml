@@ -4,7 +4,9 @@
 # Bring up with:
 #
 #   docker login registry.acceled.net
-#   docker compose -f deploy-compose.self-hosted.yml up -d
+#   cp deploy.env.example .env
+#   cp librechat.self-hosted.yaml librechat.yaml
+#   docker compose -f compose.yml up -d
 #
 # To deploy from another registry, set:
 #
